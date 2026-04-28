@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Список покупок для подорожей</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #f0f4f8;
+            color: #2d3748;
+            min-height: 100vh;
+        }
+
+        header {
+            background: #1e3a5f;
+            color: #fff;
+            padding: 1rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,.2);
+        }
+
+        header h1 { font-size: 1.2rem; font-weight: 600; }
+
+        .status-bar { font-size: .75rem; color: #a0aec0; display: flex; align-items: center; gap: 6px; }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #68d391; display: inline-block; animation: pulse 2s infinite; }
+        .status-dot.error { background: #fc8181; animation: none; }
+        @keyframes pulse { 0%,100%{opacity:1}50%{opacity:.4} }
+
+        main { max-width: 680px; margin: 2rem auto; padding: 0 1rem; }
+
+        .add-form {
+            background: #fff;
+            border-radius: 12px;
+            padding: 1.25rem;
+            box-shadow: 0 1px 4px rgba(0,0,0,.08);
+            display: flex;
+            gap: .75rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .add-form input {
+            flex: 1;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            padding: .6rem 1rem;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color .2s;
+        }
+        .add-form input:focus { border-color: #2980b9; }
+
+        .btn { padding: .6rem 1.2rem; border: none; border-radius: 8px; font-size: .9rem; font-weight: 600; cursor: pointer; transition: opacity .15s, transform .1s; }
+        .btn:active { transform: scale(.97); }
+        .btn:disabled { opacity: .5; cursor: not-allowed; }
+        .btn-primary { background: #2980b9; color: #fff; }
+        .btn-danger  { background: #e53e3e; color: #fff; }
+        .btn-ghost   { background: #edf2f7; color: #4a5568; }
+        .btn-sm      { padding: .35rem .75rem; font-size: .8rem; }
+
+        .list-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: .75rem; color: #718096; font-size: .85rem; }
+
+        .items-list { list-style: none; display: flex; flex-direction: column; gap: .5rem; }
+
+        .item-card {
+            background: #fff;
+            border-radius: 10px;
+            padding: .85rem 1rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,.07);
+            display: flex;
+            align-items: center;
+            gap: .75rem;
+            animation: fadeIn .25s ease;
+            transition: opacity .2s, transform .2s;
+        }
+        @keyframes fadeIn { from{opacity:0;transform:translateY(-6px)}to{opacity:1} }
+        .item-card.removing { opacity: 0; transform: scale(.97); }
+
+        .item-checkbox { width: 18px; height: 18px; accent-color: #2980b9; cursor: pointer; flex-shrink: 0; }
+
+        .item-text { flex: 1; font-size: .95rem; word-break: break-word; cursor: pointer; padding: 2px 4px; border-radius: 4px; transition: background .15s; }
+        .item-text:hover { background: #f7fafc; }
+        .item-text.done { text-decoration: line-through; color: #a0aec0; }
+
+        .item-meta { font-size: .7rem; color: #cbd5e0; display: block; }
+
+        .item-edit-input { flex: 1; border: 2px solid #2980b9; border-radius: 6px; padding: .3rem .6rem; font-size: .95rem; outline: none; }
+
+        .item-actions { display: flex; gap: .4rem; flex-shrink: 0; }
+
+        .empty-state { text-align: center; padding: 3rem 1rem; color: #a0aec0; }
+        .empty-state .icon { font-size: 3rem; margin-bottom: .75rem; }
+
+        .toast {
+            position: fixed; bottom: 1.5rem; right: 1.5rem;
+            background: #2d3748; color: #fff;
+            padding: .75rem 1.25rem; border-radius: 8px;
+            font-size: .875rem; box-shadow: 0 4px 12px rgba(0,0,0,.2);
+            transition: all .3s; z-index: 1000;
+        }
+        .toast.error   { background: #e53e3e; }
+        .toast.success { background: #38a169; }
+        .toast.hidden  { opacity: 0; transform: translateY(10px); pointer-events: none; }
+
+        .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid #fff3; border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; }
+        @keyframes spin { to{transform:rotate(360deg)} }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>&#x1F9F3; Список покупок для подорожей</h1>
+    <div class="status-bar">
+        <span class="status-dot" id="statusDot"></span>
+        <span id="statusText">Підключення...</span>
+    </div>
+</header>
+
+<main>
+    <div class="add-form">
+        <input type="text" id="newItemInput"
+            placeholder="Що потрібно взяти? (напр. Сонцезахисний крем)"
+            maxlength="500" autocomplete="off">
+        <button class="btn btn-primary" id="addBtn" onclick="handleAdd()">Додати</button>
+    </div>
+
+    <div class="list-header">
+        <span id="itemCount">Завантаження...</span>
+        <span id="lastUpdated"></span>
+    </div>
+
+    <ul class="items-list" id="itemsList"></ul>
+
+    <div class="empty-state" id="emptyState" style="display:none">
+        <div class="icon">&#x1F6D2;</div>
+        <p>Список порожній.<br>Додайте перший елемент!</p>
+    </div>
+</main>
+
+<div class="toast hidden" id="toast"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
